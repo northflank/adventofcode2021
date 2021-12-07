@@ -1,25 +1,28 @@
-const input = [1101, 1, 29, ...]
+const input = [16, 1, 2, 0, 4, 2, 7, 1, 2, 14]
 
 function getMedian(arr) {
-    return arr.slice().sort((a, b) => a - b)[Math.floor(arr.length / 2)];
+    return arr.slice().sort((a, b) => a - b)
+    [Math.floor(arr.length / 2)];
 };
 
-function crabCost(top, bottom) {
-    let crabCost = 0
-    for (let i = 0; i <= Math.abs(top - bottom); i++) crabCost += i
-    return crabCost
+function crabFuel(start, end) {
+    let crabFuel = 0
+    for (let i = 0; i <= Math.abs(start - end); i++)
+        crabFuel += i
+    return crabFuel
 }
 
-function fuelCost(input, position) {
-    let fuelCost = 0
-    input.map(e => fuelCost += crabCost(e, position))
-    return fuelCost
+function totalFuel(input, position) {
+    let totalFuel = 0
+    input.map(e => totalFuel += crabFuel(e, position))
+    return totalFuel
 }
 
-function getLowestResult(position, oldResult) {
-    let result = fuelCost(input, position)
-    if (!oldResult || result < oldResult) return getLowestResult(position + 1, result)
+function getLowestFuel(position, oldResult) {
+    let result = totalFuel(input, position)
+    if (!oldResult || result < oldResult)
+        return getLowestFuel(position + 1, result)
     else return oldResult
 }
 
-console.log("Task 2:", getLowestResult(getMedian(input)))
+console.log("Task 2:", getLowestFuel(getMedian(input)))
