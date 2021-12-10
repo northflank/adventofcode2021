@@ -1,3 +1,5 @@
+// Run with https://github.com/souffle-lang/souffle
+
 .type String = symbol
 .type Char = symbol
 
