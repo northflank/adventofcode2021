@@ -1,0 +1,34 @@
+.decl raw_input(a: symbol)
+.input raw_input(IO=file, filename="input-day-6.txt")
+
+.decl is_number(n: number)
+is_number(0).
+is_number(n + 1) :- is_number(n), n < 1000.
+
+.decl fish_inputs(index: number, days_to_spawn: number)
+fish_inputs(n, t) :- raw_input(s),
+                     is_number(n), is_number(t),
+                     to_string(t) = substr(s, n, 1),
+                     n < strlen(s).
+
+.decl day(n: number)
+day(d) :- is_number(d), d < 256.
+
+.decl fish_population(day: number, timer: number, population: number)
+fish_population(0, t, count : { fish_inputs(_, t) }) :- is_number(t), t <= 8.
+fish_population(d + 1, 8, p) :- day(d), fish_population(d, 0, p).
+fish_population(d + 1, t, p) :- day(d), fish_population(d, t0, p), t = t0 - 1, t != 6, t >= 0.
+fish_population(d + 1, t, p + r) :-
+    day(d),
+    fish_population(d, 0, r),
+    fish_population(d, t0, p),
+    t = t0 - 1, t = 6.
+
+
+.decl results(task: symbol, population: number)
+
+results("Task 1", r) :- r = sum p : { fish_population(80, _, p) }.
+results("Task 2", r) :- r = sum p : { fish_population(256, _, p) }. // requires uint_64 support
+
+.output results(IO=stdout)
+
