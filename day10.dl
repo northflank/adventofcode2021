@@ -1,0 +1,149 @@
+.type String = symbol
+.type Char = symbol
+
+// Define some helper relations
+.decl matchingChars(a: Char, b: Char)
+matchingChars("[", "]").
+matchingChars("(", ")").
+matchingChars("<", ">").
+matchingChars("{", "}").
+
+.decl nonMatchingChars(a: Char, b: Char)
+nonMatchingChars(a, b) :-
+    matchingChars(a, _),
+    matchingChars(c, b),
+    a != c.
+
+.decl openingChars(a: Char)
+.decl closingChars(a: Char)
+closingChars(a) :- matchingChars(_, a).
+openingChars(a) :- matchingChars(a, _).
+
+// Operations on symbols as stacks
+#define GET(s, i) substr(s, i, 1)
+#define SIZE(s) strlen(s)
+#define LAST(s) strlen(s) - 1
+#define HEAD(s) substr(s, LAST(s), 1)
+#define TAIL(s) substr(s, 0, LAST(s))
+#define EMPTY ""
+
+.comp SyntaxAnalyzer {
+    .decl lines(string: String)
+
+    .decl chars(string: String, index: number, char: Char)
+    chars(a, 0, GET(a, 0)) :- lines(a).
+    chars(a, j, GET(a, j)) :- chars(a, i, _), j = i + 1, j < SIZE(a).
+
+    // Stacks for current parser state (only derives valid stacks)
+    .decl stacks(string: String, index: number, stack: String)
+    stacks(a, -1, EMPTY) :- lines(a).
+    stacks(a, i + 1, s) :-
+        stacks(a, i, s0),
+        chars(a, i + 1, c),
+        (
+            (matchingChars(o, c), top(s0, o), s = TAIL(s0));
+            (openingChars(c), s = cat(s0, c))
+        ).
+
+    // Top element on stack
+    .decl top(stack: String, char: Char)
+    top(s, HEAD(s)) :- stacks(_, _, s), SIZE(s) > 0.
+
+    // Error detection -> top element of is followed by non-matching character
+    .decl errors(string: String, index: number, expected: Char, found: Char)
+    errors(a, i + 1, e, f) :-
+        stacks(a, i, s),
+        top(s, l),
+        chars(a, i + 1, f),
+        nonMatchingChars(l, f),
+        matchingChars(l, e).
+
+    .decl firstIllegalCharacter(string: String, character: Char)
+    firstIllegalCharacter(a, c) :- chars(a, i, c), i = min i : { errors(a, i, _, c) }.
+
+    // Incomplete lines = (all lines) - (corrupted lines) - (complete valid lines)
+    .decl incompleteLines(string: String)
+    incompleteLines(s) :-
+        lines(s),
+        !errors(s, _, _, _),
+        !stacks(s, LAST(s), EMPTY).
+}
+
+// TASK 1
+.init task1 = SyntaxAnalyzer
+.input task1.lines(IO=file, filename="input-day-10.txt")
+
+.decl errorScoreTable(char: Char, score: number)
+errorScoreTable(")", 3).
+errorScoreTable("]", 57).
+errorScoreTable("}", 1197).
+errorScoreTable(">", 25137).
+
+.decl errorScores(string: String, score: number)
+errorScores(a, s) :- task1.firstIllegalCharacter(a, c), errorScoreTable(c, s).
+
+// Task 1
+.decl task1Result(score: number)
+.output task1Result(IO=stdout)
+task1Result(s) :- s = sum s : { errorScores(_, s) }.
+
+
+// TASK 2
+.comp AutoCompleter : SyntaxAnalyzer {
+    .init analyzer = SyntaxAnalyzer
+
+    analyzer.lines(a) :- incompleteLines(a).
+
+    .decl partialCompletions(original: String, completed: String, stackIndex: number)
+    .decl fullCompletions(original: String, completed: String)
+
+    // Find perser stacks for full lines
+    .decl terminalStacks(original: String, stack: String)
+    terminalStacks(a, s) :- stacks(a, LAST(a), s).
+
+    // Derive partial completions by backtracking stacks
+    partialCompletions(a, a, strlen(s) - 1) :- terminalStacks(a, s).
+    partialCompletions(a, cat(b, c), i - 1) :-
+        partialCompletions(a, b, i),
+        terminalStacks(a, s),
+        o = GET(s, i),
+        i >= 0,
+        matchingChars(o, c).
+
+    // Filter for full completions
+    fullCompletions(a, b) :- partialCompletions(a, b, -1).
+}
+
+.init task2 = AutoCompleter
+task2.lines(line) :- task1.incompleteLines(line).
+
+.decl completionScoreTable(char: Char, score: unsigned, scoreFloat: float)
+completionScoreTable(")", 1, 1).
+completionScoreTable("]", 2, 2).
+completionScoreTable("}", 3, 3).
+completionScoreTable(">", 4, 4).
+
+// Scores for partial completions
+.decl completionScoreAccumulator(string: String, completion: String, score: unsigned, scoreFloat: float)
+completionScoreAccumulator(a, a, 0, 0) :- task2.partialCompletions(a, a, _).
+completionScoreAccumulator(a, c, s, sf) :-
+    completionScoreAccumulator(a, b, s0, sf0),
+    task2.partialCompletions(a, c, _),
+    completionScoreTable(p, q, qf),
+    c = cat(b, p),
+    s = s0 * 5 + q,
+    sf = sf0 * 5 + qf.
+
+
+// Scores for full completions
+.decl completionScores(string: String, completion: String, score: unsigned, scoreFloat: float)
+completionScores(a, c, s, sf) :- completionScoreAccumulator(a, c, s, sf), task2.fullCompletions(a, c).
+
+.decl task2Result(score: unsigned)
+.output task2Result(IO=stdout)
+task2Result(s) :-
+    completionScores(_, _, s, sf),
+    c1 = count : { completionScores(_, _, _, s0), s0 < sf },
+    c2 = count : { completionScores(_, _, _, s1), s1 > sf },
+    c1 = c2.
+
